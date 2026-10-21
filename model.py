@@ -45,3 +45,55 @@ def marginal_systemic_impact(liabilities, assets, institution, shock_size=0.25, 
 def rank_systemic_nodes(liabilities, assets, shock_size=0.25, outside_liabilities=None):
     impacts = [marginal_systemic_impact(liabilities, assets, i, shock_size, outside_liabilities) for i in range(len(assets))]
     return sorted(enumerate(impacts), key=lambda item: item[1], reverse=True)
+
+
+def capital_intervention_benefit(
+    liabilities,
+    assets,
+    institution,
+    shock,
+    capital=1.0,
+    outside_liabilities=None,
+    recovery=1.0,
+):
+    """Network shortfall prevented by adding capital at one institution."""
+    assets = np.asarray(assets, float)
+    stressed = clear(
+        liabilities, assets, outside_liabilities, shock=shock, recovery=recovery
+    )
+    supported_assets = assets.copy()
+    supported_assets[institution] += capital
+    supported = clear(
+        liabilities,
+        supported_assets,
+        outside_liabilities,
+        shock=shock,
+        recovery=recovery,
+    )
+    return float(stressed.shortfall.sum() - supported.shortfall.sum())
+
+
+def rank_capital_interventions(
+    liabilities,
+    assets,
+    shock,
+    capital=1.0,
+    outside_liabilities=None,
+    recovery=1.0,
+):
+    """Rank equal-cost capital placements by prevented network shortfall."""
+    if capital <= 0:
+        raise ValueError("capital must be positive")
+    benefits = [
+        capital_intervention_benefit(
+            liabilities,
+            assets,
+            institution,
+            shock,
+            capital,
+            outside_liabilities,
+            recovery,
+        )
+        for institution in range(len(assets))
+    ]
+    return sorted(enumerate(benefits), key=lambda item: item[1], reverse=True)
